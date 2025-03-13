@@ -275,6 +275,35 @@ def astar_multi(maze):
                 
     
 
+def findpath(maze, current_position, objective):
+    """
+    Find the path from the current position to the objective using BFS.
+
+    @param maze: The maze to execute the search on.
+    @param current_position: The current position of the agent.
+    @param objective: The objective to reach.
+
+    @return path: a list of tuples containing the coordinates of each state in the computed path
+    """
+    waitList = [(manhattan_distance(current_position, objective), current_position)]
+    parentPosition = {current_position: None}
+
+    while waitList:
+        waitList.sort(key=lambda x: x[0])
+        _, currentPosition = waitList.pop(0)
+
+        if currentPosition == objective:
+            path = []
+            while currentPosition:
+                path.append(currentPosition)
+                currentPosition = parentPosition[currentPosition]
+            return path[::-1]
+        
+        for neighbor in maze.getNeighbors(currentPosition[0], currentPosition[1]):
+            if neighbor not in parentPosition:
+                waitList.append((manhattan_distance(neighbor, objective), neighbor))
+                parentPosition[neighbor] = currentPosition
+        
 
 def fast(maze):
     """
@@ -285,56 +314,22 @@ def fast(maze):
     @return path: a list of tuples containing the coordinates of each state in the computed path
     """
     # TODO: Write your code here
-
-    def heuristic(state):
-        sum = 0
-        remainingDots = [dot for dot in dots if dot not in list(state[1])]
-        for dot in remainingDots:
-           sum += (dot[0] - state[0][0]) + (dot[1] - state[0][1]) 
-        return sum
-    
-    startPosition = maze.getStart()
-    dots = maze.getObjectives()
-    waitMinheap = []
-
-    # Initialize heuristic
-    storeHeuristic = {}
+    current_position = maze.getStart()
+    objectives = maze.getObjectives()
+    path = [current_position]
     
 
-    startState = (startPosition, frozenset())
-    parentState = {startState: None}
-    gcosts = {startState: 0} 
-    fcosts = {startState: heuristic(startState)} # Total cost = gcost + hcost
-    path = []
-    heapq.heappush(waitMinheap, (heuristic(startState), 0, startState))
-
-    while True:
-        fcost, gcost, currentState = heapq.heappop(waitMinheap)
-        currentPosition, currentVisited = currentState
-        currentNeighbors = maze.getNeighbors(currentPosition[0], currentPosition[1])
-
-        if len(currentVisited) == len(dots):
-            while currentState is not None:
-                path.append(currentState[0])
-                currentState = parentState[currentState]
-            
-            if maze.isValidPath(path[::-1]) == "Valid":
-                return path[::-1] 
-            else:
-                path.clear()
-
-        for neighbor in currentNeighbors:
-            newVisited = (currentVisited | {neighbor}) if (neighbor in dots) else currentVisited
-            newState = (neighbor, frozenset(newVisited))
-
-            if (newState not in gcosts) or (gcosts[currentState] + 1 < gcosts[newState]):
-                newgcost = gcosts[currentState] + 1
-                newfcost = newgcost + heuristic(newState)
-
-                gcosts[newState] = newgcost
-                fcosts[newState] = newfcost
-                heapq.heappush(waitMinheap,(newfcost, newgcost, newState))
-                # Record its parent to rebuild path
-                parentState[newState] = currentState
-
+    while objectives:
+        # Find the closest objective
+        closest_objective = min(objectives, key=lambda obj: manhattan_distance(current_position, obj))
+        path_to_closest = findpath(maze, current_position, closest_objective)
+        
+        # Remove the current position
+        path.extend(path_to_closest[1:])
+        
+        # Move to the closest objective
+        current_position = closest_objective
+        objectives.remove(closest_objective)
+        
+        
     return path
