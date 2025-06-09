@@ -18,19 +18,19 @@ class MonteCarloSimulator:
             sim_opp_hole_cards = [card_to_str(card) for card in sim_opp_hole]
             
             community = [Card.from_str(card) for card in community_cards]
-            sim_community = community + self.draw_unknown_cards(deck, hole_cards + community_cards + sim_opp_hole_cards, 5 - len(community_cards))
+            
+            sim_community = community
+            if len(sim_community) != 5:
+                sim_community += self.draw_unknown_cards(deck, hole_cards + community_cards + sim_opp_hole_cards, 5 - len(community))
             
             hole = [Card.from_str(card) for card in hole_cards]
             my_hand = HandEvaluator.gen_hand_rank_info(hole, sim_community)
             opp_hand = HandEvaluator.gen_hand_rank_info(sim_opp_hole, sim_community)
-
-            print(f"opp: {opp_hand}")
-            print(f"sleepcat: {my_hand}")
             
-            if my_hand["hand"]["strength"] > opp_hand["hand"]["strength"]:
+        
+            if (my_hand["hand"]["strength"] > opp_hand["hand"]["strength"] or 
+                my_hand["hand"]["strength"] == opp_hand["hand"]["strength"] and my_hand["hand"]["high"] > opp_hand["hand"]["high"]):
                 win_num += 1
-            elif my_hand["hand"]["strength"] == opp_hand["hand"]["strength"]:
-                win_num += 0.5
         
         win_rate = win_num / self.num_simulations
         return win_rate

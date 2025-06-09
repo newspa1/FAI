@@ -15,7 +15,7 @@ from baseline6 import setup_ai as baseline6_ai
 from baseline7 import setup_ai as baseline7_ai
 
 config = setup_config(max_round=20, initial_stack=1000, small_blind_amount=5)
-config.register_player(name="p1", algorithm=baseline0_ai())
+config.register_player(name="p1", algorithm=baseline6_ai())
 config.register_player(name="Sleepcat", algorithm=sleepcat_ai())
 
 ## Play in interactive mode if uncomment
@@ -27,7 +27,7 @@ config.register_player(name="Sleepcat", algorithm=sleepcat_ai())
 
 win_num_p1 = 0.0
 win_num_p2 = 0.0
-for i in range (200):
+for i in range (100):
     print(f"round {i}")
     game_result = start_poker(config, verbose=1)
     if game_result["players"][0]["stack"] > 1000:
