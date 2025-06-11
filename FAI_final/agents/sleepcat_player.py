@@ -34,10 +34,10 @@ class SleepcatPlayer(
         
         self.is_win = False
         self.is_all_in = False
-        
-        self.must_all_in = False
-
         self.mc_simulator = MonteCarloSimulator(num_simulations=500)
+
+        self.save_margin = None
+        self.opp_prev_action = None
 
     def declare_action(self, valid_actions, hole_card, round_state):
         if not self.is_win:
@@ -125,6 +125,8 @@ class SleepcatPlayer(
         
         self.small_blind_amount = game_info["rule"]["small_blind_amount"]
         self.big_blind_amount = self.small_blind_amount * 2
+        
+        self.save_margin = self.initial_stack * 0.1
 
     def receive_round_start_message(self, round_count, hole_card, seats):
         self.current_stack = seats[self.seat]["stack"]

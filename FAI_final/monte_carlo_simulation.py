@@ -6,7 +6,6 @@ from game.engine.deck import Deck
 class MonteCarloSimulator:
     def __init__(self, num_simulations=1000):
         self.num_simulations = num_simulations
-        print("Initial montecarlo")
         
     def estimate_win_rate(self, hole_cards, community_cards):
         # for _ in range(self.num_simulations):

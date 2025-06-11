@@ -5,14 +5,14 @@ from itertools import groupby
 class HandEvaluator:
 
     HIGHCARD = 0
-    ONEPAIR = 1 << 8
-    TWOPAIR = 1 << 9
-    THREECARD = 1 << 10
-    STRAIGHT = 1 << 11
-    FLASH = 1 << 12
-    FULLHOUSE = 1 << 13
-    FOURCARD = 1 << 14
-    STRAIGHTFLASH = 1 << 15
+    ONEPAIR = 1 << 20
+    TWOPAIR = 1 << 21
+    THREECARD = 1 << 22
+    STRAIGHT = 1 << 23
+    FLASH = 1 << 24
+    FULLHOUSE = 1 << 25
+    FOURCARD = 1 << 26
+    STRAIGHTFLASH = 1 << 27
 
     HAND_STRENGTH_MAP = {
         HIGHCARD: "HIGHCARD",
@@ -31,35 +31,28 @@ class HandEvaluator:
         hand = self.eval_hand(hole, community)
         row_strength = self.__mask_hand_strength(hand)
         strength = self.HAND_STRENGTH_MAP[row_strength]
-        hand_high = self.__mask_hand_high_rank(hand)
-        hand_low = self.__mask_hand_low_rank(hand)
-        hole_high = self.__mask_hole_high_rank(hand)
-        hole_low = self.__mask_hole_low_rank(hand)
+        hand_rank_1 = self.__mask_hand_rank_1(hand)
+        hand_rank_2 = self.__mask_hand_rank_2(hand)
+        hand_rank_3 = self.__mask_hand_rank_3(hand)
+        hand_rank_4 = self.__mask_hand_rank_4(hand)
+        hand_rank_5 = self.__mask_hand_rank_5(hand)
 
         return {
-            "hand": {"strength": strength, "high": hand_high, "low": hand_low},
-            "hole": {"high": hole_high, "low": hole_low},
+            "hand": {"strength": strength, 
+                     "rank_1": hand_rank_1,
+                     "rank_2": hand_rank_2, 
+                     "rank_3": hand_rank_3,
+                     "rank_4": hand_rank_4, 
+                     "rank_5": hand_rank_5},
         }
 
     @classmethod
     def eval_hand(self, hole, community):
         ranks = sorted([card.rank for card in hole])
-        hole_flg = ranks[1] << 4 | ranks[0]
-        hand_flg = self.__calc_hand_info_flg(hole, community) << 8
-        return hand_flg | hole_flg
+        # hole_flg = ranks[1] << 4 | ranks[0] # we now do not need to consider hole cards separately
+        hand_flg = self.__calc_hand_info_flg(hole, community)
+        return hand_flg
 
-    # Return Format
-    # [Bit flg of hand][rank1(4bit)][rank2(4bit)]
-    # ex.)
-    #       HighCard hole card 3,4   =>           100 0011
-    #       OnePair of rank 3        =>        1 0011 0000
-    #       TwoPair of rank A, 4     =>       10 1110 0100
-    #       ThreeCard of rank 9      =>      100 1001 0000
-    #       Straight of rank 10      =>     1000 1010 0000
-    #       Flash of rank 5          =>    10000 0101 0000
-    #       FullHouse of rank 3, 4   =>   100000 0011 0100
-    #       FourCard of rank 2       =>  1000000 0010 0000
-    #       straight flash of rank 7 => 10000000 0111 0000
     @classmethod
     def __calc_hand_info_flg(self, hole, community):
         cards = hole + community
@@ -78,13 +71,16 @@ class HandEvaluator:
         if self.__is_twopair(cards):
             return self.TWOPAIR | self.__eval_twopair(cards)
         if self.__is_onepair(cards):
-            return self.ONEPAIR | (self.__eval_onepair(cards))
-        return self.__eval_holecard(hole)
+            return self.ONEPAIR | self.__eval_onepair(cards)
+        return self.HIGHCARD | self.__eval_highcard(cards)
 
     @classmethod
-    def __eval_holecard(self, hole):
-        ranks = sorted([card.rank for card in hole])
-        return ranks[1] << 4 | ranks[0]
+    def __eval_highcard(self, cards):
+        ranks = sorted([card.rank for card in cards], reverse=True)[:5]
+        result = 0
+        for i, rank in enumerate(ranks):
+            result |= rank << (16 - 4 * i)
+        return result
 
     @classmethod
     def __is_onepair(self, cards):
@@ -99,7 +95,15 @@ class HandEvaluator:
             if memo & mask != 0:
                 rank = max(rank, card.rank)
             memo |= mask
-        return rank << 4
+            
+        kickers = [card.rank for card in cards if card.rank != rank]
+        kickers = sorted(kickers, reverse=True)[:3]
+            
+        # [pair_rank << 16] | [kicker1 << 12] | [kicker2 << 8] | [kicker3 << 4]
+        result = rank << 16
+        for i, kicker in enumerate(kickers):
+            result |= kicker << (12 - 4 * i)
+        return result
 
     @classmethod
     def __is_twopair(self, cards):
@@ -107,8 +111,11 @@ class HandEvaluator:
 
     @classmethod
     def __eval_twopair(self, cards):
-        ranks = self.__search_twopair(cards)
-        return ranks[0] << 4 | ranks[1]
+        pair_ranks = self.__search_twopair(cards)
+        kickers = [card.rank for card in cards if card.rank not in pair_ranks]
+        kicker = max(kickers) if kickers else 0
+        # [high_pair << 16] | [low_pair << 12] | [kicker << 8]
+        return (pair_ranks[0] << 16) | (pair_ranks[1] << 12) | (kicker << 8)
 
     @classmethod
     def __search_twopair(self, cards):
@@ -127,7 +134,14 @@ class HandEvaluator:
 
     @classmethod
     def __eval_threecard(self, cards):
-        return self.__search_threecard(cards) << 4
+        three_rank = self.__search_threecard(cards)
+        kickers = [card.rank for card in cards if card.rank != three_rank]
+        kickers = sorted(kickers, reverse=True)[:2]
+        # [three_rank << 16] | [kicker1 << 12] | [kicker2 << 8]
+        result = three_rank << 16
+        for i, kicker in enumerate(kickers):
+            result |= kicker << (12 - 4 * i)
+        return result
 
     @classmethod
     def __search_threecard(self, cards):
@@ -148,7 +162,7 @@ class HandEvaluator:
 
     @classmethod
     def __eval_straight(self, cards):
-        return self.__search_straight(cards) << 4
+        return self.__search_straight(cards) << 16 # 4 -> 16
 
     @classmethod
     def __search_straight(self, cards):
@@ -157,28 +171,37 @@ class HandEvaluator:
         straight_check = lambda acc, i: acc & (bit_memo >> (r + i) & 1) == 1
         for r in range(2, 15):
             if reduce(straight_check, range(5), True):
-                rank = r
+                rank = r + 4  
+                
+        # Check for special case wheel (A-2-3-4-5)
+        if all(bit_memo & (1 << x) for x in [14, 2, 3, 4, 5]):
+            rank = 5
         return rank
 
     @classmethod
     def __is_flash(self, cards):
-        return self.__search_flash(cards) != -1
+        return len(self.__search_flash(cards)) == 5 
 
     @classmethod
     def __eval_flash(self, cards):
-        return self.__search_flash(cards) << 4
+        flush_ranks = self.__search_flash(cards)
+        result = 0
+        for i, rank in enumerate(flush_ranks):
+            result |= rank << (16 - 4 * i)
+        return result
 
     @classmethod
     def __search_flash(self, cards):
-        best_suit_rank = -1
-        fetch_suit = lambda card: card.suit
-        fetch_rank = lambda card: card.rank
-        for suit, group_obj in groupby(sorted(cards, key=fetch_suit), key=fetch_suit):
-            g = list(group_obj)
-            if len(g) >= 5:
-                max_rank_card = max(g, key=fetch_rank)
-                best_suit_rank = max(best_suit_rank, max_rank_card.rank)
-        return best_suit_rank
+        suit_groups = {}
+        for card in cards:
+            suit_groups.setdefault(card.suit, []).append(card)
+        best_flush = []
+        for group in suit_groups.values():
+            if len(group) >= 5:
+                flush_cards = sorted(group, key=lambda c: c.rank, reverse=True)[:5]
+                if not best_flush or [c.rank for c in flush_cards] > [c.rank for c in best_flush]:
+                    best_flush = flush_cards
+        return [c.rank for c in best_flush]
 
     @classmethod
     def __is_fullhouse(self, cards):
@@ -188,7 +211,7 @@ class HandEvaluator:
     @classmethod
     def __eval_fullhouse(self, cards):
         r1, r2 = self.__search_fullhouse(cards)
-        return r1 << 4 | r2
+        return r1 << 16 | r2 << 12  # 4 -> 16, 0 -> 12
 
     @classmethod
     def __search_fullhouse(self, cards):
@@ -214,8 +237,13 @@ class HandEvaluator:
 
     @classmethod
     def __eval_fourcard(self, cards):
-        rank = self.__search_fourcard(cards)
-        return rank << 4
+        four_rank = self.__search_fourcard(cards)
+        if four_rank == 0:
+            return 0
+        kickers = [card.rank for card in cards if card.rank != four_rank]
+        kicker = max(kickers) if kickers else 0
+        # [four_rank << 16] | [kicker << 12]
+        return (four_rank << 16) | (kicker << 12)
 
     @classmethod
     def __search_fourcard(self, cards):
@@ -232,7 +260,7 @@ class HandEvaluator:
 
     @classmethod
     def __eval_straightflash(self, cards):
-        return self.__search_straightflash(cards) << 4
+        return self.__search_straightflash(cards) << 16
 
     @classmethod
     def __search_straightflash(self, cards):
@@ -246,25 +274,30 @@ class HandEvaluator:
 
     @classmethod
     def __mask_hand_strength(self, bit):
-        mask = 511 << 16
-        return (bit & mask) >> 8  # 511 = (1 << 9) -1
+        mask = 511 << 20
+        return (bit & mask)
 
     @classmethod
-    def __mask_hand_high_rank(self, bit):
+    def __mask_hand_rank_1(self, bit):
+        mask = 15 << 16
+        return (bit & mask) >> 16
+
+    @classmethod
+    def __mask_hand_rank_2(self, bit):
         mask = 15 << 12
         return (bit & mask) >> 12
 
     @classmethod
-    def __mask_hand_low_rank(self, bit):
+    def __mask_hand_rank_3(self, bit):
         mask = 15 << 8
         return (bit & mask) >> 8
 
     @classmethod
-    def __mask_hole_high_rank(self, bit):
+    def __mask_hand_rank_4(self, bit):
         mask = 15 << 4
         return (bit & mask) >> 4
 
     @classmethod
-    def __mask_hole_low_rank(self, bit):
+    def __mask_hand_rank_5(self, bit):
         mask = 15
         return bit & mask
