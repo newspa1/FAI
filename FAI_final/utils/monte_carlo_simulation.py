@@ -1,4 +1,3 @@
-import random
 from game.engine.card import Card
 from game.engine.hand_evaluator import HandEvaluator
 from game.engine.deck import Deck
@@ -23,14 +22,12 @@ class MonteCarloSimulator:
                 sim_community += self.draw_unknown_cards(deck, hole_cards + community_cards + sim_opp_hole_cards, 5 - len(community))
             
             hole = [Card.from_str(card) for card in hole_cards]
-            my_hand = HandEvaluator.gen_hand_rank_info(hole, sim_community)
-            opp_hand = HandEvaluator.gen_hand_rank_info(sim_opp_hole, sim_community)
+            my_hand = HandEvaluator.eval_hand(hole, sim_community)
+            opp_hand = HandEvaluator.eval_hand(sim_opp_hole, sim_community)
             
-        
-            if (my_hand["hand"]["strength"] > opp_hand["hand"]["strength"] or 
-                my_hand["hand"]["strength"] == opp_hand["hand"]["strength"] and my_hand["hand"]["high"] > opp_hand["hand"]["high"]):
+            if (my_hand > opp_hand):
                 win_num += 1
-        
+            
         win_rate = win_num / self.num_simulations
         return win_rate
     

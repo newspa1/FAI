@@ -1,7 +1,7 @@
 from game.players import BasePokerPlayer
 from game.engine.hand_evaluator import HandEvaluator
 from game.engine.card import Card
-from monte_carlo_simulation import MonteCarloSimulator
+from utils.monte_carlo_simulation import MonteCarloSimulator
 
 class SleepcatPlayer(
     BasePokerPlayer
@@ -36,7 +36,6 @@ class SleepcatPlayer(
         self.is_all_in = False
         self.mc_simulator = MonteCarloSimulator(num_simulations=500)
 
-        self.save_margin = None
         self.opp_prev_action = None
 
     def declare_action(self, valid_actions, hole_card, round_state):
@@ -67,7 +66,6 @@ class SleepcatPlayer(
     
     def postflop_action(self, valid_actions, hole_card, round_state):
         win_rate = self.mc_simulator.estimate_win_rate(hole_card, round_state["community_card"])
-        
         if win_rate >= 0.6:
             self.is_all_in = True
             return self.__all_in(valid_actions)
@@ -85,10 +83,6 @@ class SleepcatPlayer(
         
         
     def preflop_action(self, valid_actions, hole_card, round_state):
-        strong_pairs = ["AA", "KK", "QQ", "JJ", "TT"]
-        medium_pairs = ["99", "88", "77", "66", "55"]
-        strong_broadways = ["AK", "AQ", "AJ", "AT", "KQ", "KJ", "KT", "QJ", "QT"]
-        
         hole_obj = [Card.from_str(card) for card in hole_card]
         cards_rank = sorted([card.rank for card in hole_obj], reverse=True)
         hole_str = "".join([Card.RANK_MAP[r] for r in cards_rank])
@@ -125,8 +119,6 @@ class SleepcatPlayer(
         
         self.small_blind_amount = game_info["rule"]["small_blind_amount"]
         self.big_blind_amount = self.small_blind_amount * 2
-        
-        self.save_margin = self.initial_stack * 0.1
 
     def receive_round_start_message(self, round_count, hole_card, seats):
         self.current_stack = seats[self.seat]["stack"]

@@ -2,6 +2,7 @@ import json
 import copy
 from game.game import setup_config, start_poker
 from agents.sleepcat_player import setup_ai as sleepcat_ai
+from agents.steve_player import setup_ai as steve_ai
 from baseline0 import setup_ai as baseline0_ai
 from baseline1 import setup_ai as baseline1_ai
 from baseline2 import setup_ai as baseline2_ai
@@ -14,8 +15,12 @@ import concurrent.futures
 
 # prepare base config
 base_config = setup_config(max_round=20, initial_stack=1000, small_blind_amount=5)
-base_config.register_player(name="p1", algorithm=baseline3_ai())
+base_config.register_player(name="p1", algorithm=baseline7_ai())
 base_config.register_player(name="Sleepcat", algorithm=sleepcat_ai())
+
+# for i in range(100):  
+#     print(f"Collecting game {i}")
+#     start_poker(base_config, verbose=1)
 
 def run_single_game(i):
     print(f"round {i}")
